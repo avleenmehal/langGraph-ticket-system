@@ -28,7 +28,7 @@ def route_after_search(state: TriageState) -> str:
     If order found, continue to fetch_order. Otherwise, end workflow.
     """
     if state.get("order_id"):
-        return "fetch_order"
+        return "classify"
     else:
         return "no_order_id"
 
@@ -66,7 +66,7 @@ def build_graph():
         "search_orders",
         route_after_search,
         {
-            "fetch_order": "fetch_order",
+            "classify": "classify",
             "no_order_id": "no_order_id"
         }
     )

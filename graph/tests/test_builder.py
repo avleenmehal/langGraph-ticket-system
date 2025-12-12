@@ -80,7 +80,7 @@ class TestRoutingFunctions(unittest.TestCase):
         }
 
         result = route_after_search(state)
-        self.assertEqual(result, "fetch_order")
+        self.assertEqual(result, "classify")
 
     def test_route_after_search_without_order(self):
         """Test routing after search when no order is found"""
@@ -168,7 +168,7 @@ class TestBuildGraph(unittest.TestCase):
 
         # Check search path: ingest -> search_orders -> fetch_order (if found)
         self.assertTrue(any(source == "ingest" and target == "search_orders" for source, target in edges))
-        self.assertTrue(any(source == "search_orders" and target == "fetch_order" for source, target in edges))
+        self.assertTrue(any(source == "search_orders" and target == "classify" for source, target in edges))
 
     def test_graph_error_path(self):
         """Test the error path when no order_id is found"""
