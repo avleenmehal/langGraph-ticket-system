@@ -11,3 +11,4 @@ class TriageState(TypedDict):
     issue_type: str | None
     evidence: dict | None
     recommendation: str | None
+    email_mismatch: bool | None
