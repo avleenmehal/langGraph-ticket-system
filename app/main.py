@@ -1,7 +1,12 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from app.TriageInput import TriageInput
 from graph.builder import build_graph
+
+# Load environment variables from graph/.env
+load_dotenv("graph/.env")
 
 app = FastAPI()
 

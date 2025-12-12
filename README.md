@@ -29,7 +29,19 @@ pip install -r requirements.txt
 Create a `.env` file in the `graph/` directory with:
 ```
 BACKEND_URL=http://localhost:8000
+
+# LangSmith Configuration (for tracing)
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+LANGCHAIN_API_KEY=your-langsmith-api-key-here
+LANGCHAIN_PROJECT=ticket-system
 ```
+
+To get your LangSmith API key:
+- Go to [smith.langchain.com](https://smith.langchain.com)
+- Sign up or log in
+- Navigate to Settings → API Keys
+- Create a new API key and replace `your-langsmith-api-key-here`
 
 ## Running the Services
 
@@ -190,6 +202,30 @@ curl -X POST "http://localhost:8001/triage/invoke" \
     "ticket_text": "My speaker is not working ORD1002",
     "order_id": null
   }'
+```
+
+## LangSmith Tracing
+
+This project includes LangSmith integration for observability and debugging.
+
+### What LangSmith Tracks:
+- **Node Executions**: Each node (ingest, fetch_order, classify, draft_reply) execution
+- **State Changes**: How state evolves through the workflow
+- **Routing Decisions**: Which conditional paths are taken
+- **Execution Time**: Performance metrics for each node
+- **Errors**: Detailed error traces when issues occur
+
+### Viewing Traces:
+1. Run your workflow (send a request to `/triage/invoke`)
+2. Go to [smith.langchain.com](https://smith.langchain.com)
+3. Navigate to your project: `ticket-system`
+4. View the trace timeline showing each node execution
+5. Click on individual nodes to see inputs, outputs, and state changes
+
+### Disabling Tracing:
+To disable tracing temporarily, set in `graph/.env`:
+```
+LANGCHAIN_TRACING_V2=false
 ```
 
 
