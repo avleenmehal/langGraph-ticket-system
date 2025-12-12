@@ -7,6 +7,7 @@ from graph.nodes.fetch_order import fetch_order_node
 from graph.nodes.draft_reply import draft_reply_node
 from graph.nodes.no_order_id import no_order_id_node
 from graph.nodes.search_orders import search_orders_node
+from graph.nodes.email_mismatch import email_mismatch_node
 
 
 def route_after_ingest(state: TriageState) -> str:
@@ -33,6 +34,19 @@ def route_after_search(state: TriageState) -> str:
         return "no_order_id"
 
 
+def route_after_fetch_order(state: TriageState) -> str:
+    """
+    Route after fetch_order based on email validation.
+    If email_mismatch is True, route to email_mismatch node.
+    Otherwise, continue to classify.
+    """
+    print(state)
+    if state.get("email_mismatch") is True:
+        return "email_mismatch"
+    else:
+        return "classify"
+
+
 def build_graph():
     """
     Builds and compiles the triage workflow graph.
@@ -46,6 +60,7 @@ def build_graph():
     graph_agent.add_node("draft_reply", draft_reply_node)
     graph_agent.add_node("no_order_id", no_order_id_node)
     graph_agent.add_node("search_orders", search_orders_node)
+    graph_agent.add_node("email_mismatch", email_mismatch_node)
 
     # DEFINING EDGES (workflow flow)
     graph_agent.set_entry_point("ingest")
@@ -71,13 +86,23 @@ def build_graph():
         }
     )
 
-    # Normal workflow: fetch_order -> classify -> draft_reply
-    graph_agent.add_edge("fetch_order", "classify")
+    # Conditional edge after fetch_order (email validation)
+    graph_agent.add_conditional_edges(
+        "fetch_order",
+        route_after_fetch_order,
+        {
+            "email_mismatch": "email_mismatch",
+            "classify": "classify"
+        }
+    )
+
+    # Normal workflow: classify -> draft_reply
     graph_agent.add_edge("classify", "draft_reply")
     graph_agent.add_edge("draft_reply", END)
 
-    # Error path when no order_id
+    # Error paths
     graph_agent.add_edge("no_order_id", END)
+    graph_agent.add_edge("email_mismatch", END)
 
     # Compile and return the graph
     return graph_agent.compile()
