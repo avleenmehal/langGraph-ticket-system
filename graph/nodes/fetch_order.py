@@ -39,6 +39,7 @@ def fetch_order_tool(order_id: str) -> dict:
 def fetch_order_node(state: TriageState) -> TriageState:
     """
     Node that uses the fetch_order tool to get order details.
+    Also validates extracted email against order email if both exist.
     """
     order_id = state.get("order_id")
 
@@ -57,6 +58,26 @@ def fetch_order_node(state: TriageState) -> TriageState:
         state["evidence"] = result
         state["messages"].append({"role": "assistant", "content": f"Fetched order details: {order_id}"})
 
+        # Validate email if customer_email was extracted from ticket
+        extracted_email = state.get("customer_email")
+        order_email = result.get("email")
+
+        if extracted_email and order_email:
+            # Case-insensitive email comparison
+            if extracted_email.lower() != order_email.lower():
+                state["email_mismatch"] = True
+                state["messages"].append({
+                    "role": "assistant",
+                    "content": f"Email mismatch detected: ticket email '{extracted_email}' does not match order email '{order_email}'"
+                })
+            else:
+                state["email_mismatch"] = False
+                state["messages"].append({
+                    "role": "assistant",
+                    "content": f"Email validation successful: '{extracted_email}' matches order email"
+                })
+        else:
+            print(f"[EMAIL VALIDATION] Skipping validation - one or both emails missing")
     return state
 
 

@@ -18,15 +18,15 @@ def ingest_node(state: TriageState) -> TriageState:
             state["messages"].append({"role": "assistant", "content": f"Extracted order_id: {order_id}"})
         else:
             state["messages"].append({"role": "assistant", "content": "No order_id found in ticket"})
-
-            # Only extract email if order_id is not found
-            if not state.get("customer_email"):
-                customer_email = extract_email(ticket_text)
-                if customer_email:
-                    state["customer_email"] = customer_email
-                    state["messages"].append({"role": "assistant", "content": f"Extracted email: {customer_email}"})
     else:
         state["messages"].append({"role": "assistant", "content": f"Order_id provided: {state['order_id']}"})
+
+    # Always try to extract email if not already in state (for validation purposes)
+    if not state.get("customer_email"):
+        customer_email = extract_email(ticket_text)
+        if customer_email:
+            state["customer_email"] = customer_email
+            state["messages"].append({"role": "assistant", "content": f"Extracted email: {customer_email}"})
 
     return state
 
