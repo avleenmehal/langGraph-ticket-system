@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Support Triage</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f5f7;
+      color: #172b4d;
+      min-height: 100vh;
+    }
+
+    /* ---- Header ---- */
+    header {
+      background: #0052cc;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    header h1 { color: #fff; font-size: 1.1rem; font-weight: 600; }
+
+    .tabs { display: flex; gap: 4px; }
+    .tab {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: transparent;
+      color: rgba(255,255,255,0.75);
+      transition: background 0.15s;
+    }
+    .tab.active { background: rgba(255,255,255,0.2); color: #fff; }
+    .tab:hover { background: rgba(255,255,255,0.15); }
+
+    /* ---- Layout ---- */
+    .page { display: none; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+    .page.active { display: block; }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #172b4d; }
+
+    /* ---- Forms ---- */
+    label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: #42526e; }
+    textarea, input[type="text"] {
+      width: 100%;
+      border: 1px solid #dfe1e6;
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.15s;
+    }
+    textarea:focus, input:focus { outline: none; border-color: #0052cc; }
+    .field { margin-bottom: 16px; }
+
+    /* ---- Buttons ---- */
+    .btn {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #0052cc; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #0065ff; }
+    .btn-approve { background: #00875a; color: #fff; }
+    .btn-approve:hover:not(:disabled) { background: #006644; }
+    .btn-reject  { background: #de350b; color: #fff; margin-left: 8px; }
+    .btn-reject:hover:not(:disabled)  { background: #bf2600; }
+
+    /* ---- Status badges ---- */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-pending  { background: #fff0b3; color: #974f0c; }
+    .badge-approved { background: #e3fcef; color: #006644; }
+    .badge-rejected { background: #ffebe6; color: #bf2600; }
+    .badge-completed { background: #e6f0ff; color: #0052cc; }
+
+    /* ---- Ticket cards (admin) ---- */
+    .ticket-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      border-left: 4px solid #0052cc;
+    }
+    .ticket-card.approved { border-left-color: #00875a; }
+    .ticket-card.rejected { border-left-color: #de350b; }
+
+    .ticket-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .ticket-meta { font-size: 0.8rem; color: #6b778c; margin-top: 4px; }
+
+    .section-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b778c;
+      margin: 14px 0 6px;
+    }
+    .ticket-text-box {
+      background: #f4f5f7;
+      border-radius: 4px;
+      padding: 10px 12px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+    .llm-box {
+      background: #e6f0ff;
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .citations {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .citation-pill {
+      background: #f0f0f0;
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      color: #42526e;
+    }
+
+    /* ---- Result box ---- */
+    .result-box {
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 16px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .result-box.success { background: #e3fcef; border: 1px solid #abf5d1; }
+    .result-box.error   { background: #ffebe6; border: 1px solid #ffbdad; }
+    .result-box.info    { background: #e6f0ff; border: 1px solid #b3d4ff; }
+
+    /* ---- Spinner ---- */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #c1c7d0;
+      border-top-color: #0052cc;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state { text-align: center; color: #6b778c; padding: 40px 0; font-size: 0.9rem; }
+
+    .actions { margin-top: 16px; display: flex; align-items: center; }
+    .refresh-hint { font-size: 0.78rem; color: #6b778c; margin-left: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Support Triage</h1>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('customer')">Customer</button>
+    <button class="tab" onclick="showTab('admin')">Admin</button>
+  </div>
+</header>
+
+<!-- ======== CUSTOMER PAGE ======== -->
+<div id="page-customer" class="page active">
+  <div class="card">
+    <h2>Submit a Support Ticket</h2>
+    <div class="field">
+      <label for="ticket-text">Describe your issue</label>
+      <textarea id="ticket-text" rows="5"
+        placeholder="e.g. I was charged twice for order ORD1003. Please help."></textarea>
+    </div>
+    <div class="field">
+      <label for="order-id">Order ID <span style="font-weight:400;color:#6b778c">(optional — we can detect it from your message)</span></label>
+      <input type="text" id="order-id" placeholder="e.g. ORD1003" />
+    </div>
+    <button class="btn btn-primary" id="submit-btn" onclick="submitTicket()">Submit Ticket</button>
+  </div>
+
+  <div id="customer-result"></div>
+</div>
+
+<!-- ======== ADMIN PAGE ======== -->
+<div id="page-admin" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 style="font-size:1rem;font-weight:600">Pending Tickets</h2>
+    <button class="btn btn-primary" onclick="loadSessions()">Refresh</button>
+  </div>
+  <div id="admin-list"></div>
+</div>
+
+
+<script>
+  const API = 'http://localhost:8001';
+
+  // ---- Tab switching ----
+  function showTab(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    event.target.classList.add('active');
+    if (name === 'admin') loadSessions();
+  }
+
+  // ---- Customer: submit ----
+  async function submitTicket() {
+    const text = document.getElementById('ticket-text').value.trim();
+    const orderId = document.getElementById('order-id').value.trim() || null;
+    const resultDiv = document.getElementById('customer-result');
+    const btn = document.getElementById('submit-btn');
+
+    if (!text) { alert('Please describe your issue.'); return; }
+
+    btn.disabled = true;
+    resultDiv.innerHTML = `<div class="result-box info"><span class="spinner"></span>Submitting your ticket...</div>`;
+
+    try {
+      const res = await fetch(`${API}/triage/invoke`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ticket_text: text, order_id: orderId })
+      });
+      const data = await res.json();
+
+      if (data.status === 'pending_approval') {
+        resultDiv.innerHTML = `
+          <div class="result-box info">
+            <strong>Ticket submitted.</strong> Our team is reviewing your request.<br/>
+            <span style="font-size:0.8rem;color:#42526e;margin-top:6px;display:block">
+              Ticket ID: <code>${data.thread_id}</code>
+            </span>
+          </div>`;
+        pollStatus(data.thread_id, resultDiv);
+      } else if (data.recommendation) {
+        showCustomerResult(resultDiv, data);
+      } else {
+        resultDiv.innerHTML = `<div class="result-box error">${JSON.stringify(data)}</div>`;
+      }
+    } catch (e) {
+      resultDiv.innerHTML = `<div class="result-box error">Error: ${e.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ---- Customer: poll for result ----
+  function pollStatus(threadId, container) {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/triage/status/${threadId}`);
+        const data = await res.json();
+        if (data.status === 'approved' || data.status === 'rejected' || data.status === 'completed') {
+          clearInterval(interval);
+          const fr = data.final_result || {};
+          showCustomerResult(container, fr, data.status);
+        }
+      } catch (_) {}
+    }, 3000);
+  }
+
+  function showCustomerResult(container, data, status) {
+    const rec = data.recommendation || 'Your request has been processed.';
+    const color = status === 'rejected' ? 'error' : 'success';
+    container.innerHTML = `
+      <div class="result-box ${color}">
+        <strong>${status === 'rejected' ? 'Request Declined' : 'Update from Support'}</strong><br/><br/>
+        ${rec}
+      </div>`;
+  }
+
+  // ---- Admin: load sessions ----
+  async function loadSessions() {
+    const list = document.getElementById('admin-list');
+    list.innerHTML = `<div class="empty-state"><span class="spinner"></span> Loading...</div>`;
+    try {
+      const res = await fetch(`${API}/triage/sessions`);
+      const data = await res.json();
+      renderSessions(data.sessions || []);
+    } catch (e) {
+      list.innerHTML = `<div class="result-box error">Failed to load sessions: ${e.message}</div>`;
+    }
+  }
+
+  function renderSessions(sessions) {
+    const list = document.getElementById('admin-list');
+    if (!sessions.length) {
+      list.innerHTML = `<div class="empty-state">No tickets yet.</div>`;
+      return;
+    }
+
+    list.innerHTML = sessions.map(s => {
+      const preview = s.preview || {};
+      const llmRec = preview.llm_recommendation || '';
+      const citations = s.policy_citations || [];
+      const isPending = s.status === 'pending';
+      const fr = s.final_result || {};
+
+      return `
+      <div class="ticket-card ${s.status}" id="card-${s.thread_id}">
+        <div class="ticket-header">
+          <div>
+            <strong>${s.order_id || 'No order ID'}</strong>
+            ${s.issue_type ? `<span style="margin-left:8px;font-size:0.82rem;color:#6b778c">${s.issue_type.replace(/_/g,' ')}</span>` : ''}
+            <div class="ticket-meta">${new Date(s.created_at).toLocaleString()}</div>
+          </div>
+          <span class="badge badge-${s.status}">${s.status}</span>
+        </div>
+
+        <div class="section-label">Customer Message</div>
+        <div class="ticket-text-box">${escHtml(s.ticket_text || '')}</div>
+
+        ${preview.refund_amount != null ? `
+          <div class="section-label">Proposed Action</div>
+          <div class="ticket-text-box">
+            ${s.issue_type?.includes('replacement') || preview.replacement_item
+              ? `Replacement: <strong>${preview.replacement_item || 'item'}</strong>`
+              : `Refund: <strong>${preview.currency || 'USD'} ${preview.refund_amount}</strong>`}
+          </div>` : ''}
+
+        ${llmRec ? `
+          <div class="section-label">LLM Recommendation</div>
+          <div class="llm-box">${escHtml(llmRec)}</div>` : ''}
+
+        ${citations.length ? `
+          <div class="section-label">Policy Citations</div>
+          <div class="citations">
+            ${citations.map(c => `<span class="citation-pill">${c}</span>`).join('')}
+          </div>` : ''}
+
+        ${isPending ? `
+          <div class="actions">
+            <button class="btn btn-approve" onclick="decide('${s.thread_id}', true)">Approve</button>
+            <button class="btn btn-reject"  onclick="decide('${s.thread_id}', false)">Reject</button>
+          </div>` : `
+          <div class="section-label">Outcome</div>
+          <div class="ticket-text-box">${escHtml(fr.recommendation || fr.final_status || s.status)}</div>`}
+      </div>`;
+    }).join('');
+  }
+
+  // ---- Admin: approve / reject ----
+  async function decide(threadId, approved) {
+    const card = document.getElementById('card-' + threadId);
+    const btns = card.querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
+    btns[0].innerHTML = `<span class="spinner"></span>${approved ? 'Approving...' : 'Rejecting...'}`;
+
+    try {
+      const res = await fetch(`${API}/triage/approve`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ thread_id: threadId, approved })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // Reload after action
+      setTimeout(loadSessions, 800);
+    } catch (e) {
+      btns.forEach(b => b.disabled = false);
+      alert('Error: ' + e.message);
+    }
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br/>');
+  }
+</script>
+</body>
+</html>
