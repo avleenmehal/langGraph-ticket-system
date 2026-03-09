@@ -9,3 +9,5 @@ uvicorn>=0.32.0
 pydantic>=2.0.0
 pytest>=7.4.0
 langsmith>=0.1.0
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary]>=3.1.0

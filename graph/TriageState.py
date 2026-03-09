@@ -11,3 +11,8 @@ class TriageState(TypedDict):
     issue_type: str | None
     evidence: dict | None
     recommendation: str | None
+    policy_citations: list | None       # filenames e.g. ["refund_policy.md"]
+    policy_evidence: list | None        # full text chunks for LLM reasoning
+    refund_preview: dict | None         # raw preview (amounts, item) + LLM recommendation
+    approval_status: str | None         # "approved" | "rejected"
+    final_status: str | None            # "refund_committed" | "replacement_authorized"
