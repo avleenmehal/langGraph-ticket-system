@@ -346,17 +346,34 @@
         <div class="section-label">Customer Message</div>
         <div class="ticket-text-box">${escHtml(s.ticket_text || '')}</div>
 
+        ${preview.order ? `
+          <div class="section-label">Order Details</div>
+          <div class="ticket-text-box">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:0.85rem">
+              <span style="color:#6b778c">Customer</span><span>${escHtml(preview.order.customer_name || '')}</span>
+              <span style="color:#6b778c">Order date</span><span>${escHtml(preview.order.order_date || '')}</span>
+              <span style="color:#6b778c">Status</span><span>${escHtml(preview.order.status || '')}</span>
+              <span style="color:#6b778c">Delivery</span><span>${escHtml(preview.order.delivery_date || 'N/A')}</span>
+              <span style="color:#6b778c">Total</span><span><strong>${preview.order.currency || 'USD'} ${preview.order.total_amount ?? ''}</strong></span>
+            </div>
+            ${(preview.order.items || []).length ? `
+              <div style="margin-top:8px;font-size:0.82rem;color:#6b778c">Items</div>
+              <ul style="margin:4px 0 0 16px;font-size:0.85rem">
+                ${(preview.order.items || []).map(i => `<li>${escHtml(i.name)} × ${i.quantity}</li>`).join('')}
+              </ul>` : ''}
+          </div>` : ''}
+
         ${preview.refund_amount != null ? `
           <div class="section-label">Proposed Action</div>
           <div class="ticket-text-box">
-            ${s.issue_type?.includes('replacement') || preview.replacement_item
-              ? `Replacement: <strong>${preview.replacement_item || 'item'}</strong>`
+            ${preview.replacement_item
+              ? `Replacement: <strong>${escHtml(preview.replacement_item)}</strong>`
               : `Refund: <strong>${preview.currency || 'USD'} ${preview.refund_amount}</strong>`}
           </div>` : ''}
 
         ${llmRec ? `
           <div class="section-label">LLM Recommendation</div>
-          <div class="llm-box">${escHtml(llmRec)}</div>` : ''}
+          <div class="llm-box">${renderLlm(llmRec)}</div>` : ''}
 
         ${citations.length ? `
           <div class="section-label">Policy Citations</div>
@@ -402,6 +419,16 @@
       .replace(/&/g,'&amp;')
       .replace(/</g,'&lt;')
       .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br/>');
+  }
+
+  // Renders LLM markdown output: escapes HTML then converts **bold** and newlines
+  function renderLlm(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\n/g,'<br/>');
   }
 </script>

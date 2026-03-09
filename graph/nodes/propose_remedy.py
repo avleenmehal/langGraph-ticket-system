@@ -55,7 +55,7 @@ def propose_remedy_node(state: TriageState) -> TriageState:
         for p in policy_evidence
     ) if policy_evidence else "No policy chunks retrieved."
 
-    system_prompt = """You are a customer support triage assistant.
+    system_prompt = """You are a customer support triage assistant for the company Viridien.
 Your job is to analyse a support ticket and generate a structured recommendation
 for an ADMIN to review and approve before any action is taken.
 
@@ -98,6 +98,7 @@ Generate a structured admin recommendation with these exact sections:
         **raw_preview,
         "llm_recommendation": llm_recommendation,
         "policy_citations": citations,
+        "order": order,   # full order details for admin review
     }
 
     # --- Step 3: Interrupt — preview passed in payload so API can read it ---
