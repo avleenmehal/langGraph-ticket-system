@@ -12,6 +12,8 @@ from graph.nodes.no_order_id import no_order_id_node
 from graph.nodes.search_orders import search_orders_node
 from graph.nodes.kb_orchestrator import kb_orchestrator_node
 from graph.nodes.propose_remedy import propose_remedy_node
+from graph.nodes.commit_action import commit_action_node
+from graph.evaluator_subgraph import build_evaluator_subgraph
 
 DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/viridien")
 
@@ -32,9 +34,9 @@ def route_after_search(state: TriageState) -> str:
         return "no_order_id"
 
 
-def route_after_approval(state: TriageState) -> str:
+def route_after_evaluation(state: TriageState) -> str:
     if state.get("approval_status") == "approved":
-        return "draft_reply"
+        return "commit_action"
     return "end"
 
 
@@ -48,20 +50,22 @@ def build_graph():
     graph_agent.add_node("classify", classify_node)
     graph_agent.add_node("kb_orchestrator", kb_orchestrator_node)
     graph_agent.add_node("propose_remedy", propose_remedy_node)
+    graph_agent.add_node("evaluator_agent", build_evaluator_subgraph())
+    graph_agent.add_node("commit_action", commit_action_node)
     graph_agent.add_node("draft_reply", draft_reply_node)
     graph_agent.add_node("no_order_id", no_order_id_node)
 
     # --- Entry ---
     graph_agent.set_entry_point("ingest")
 
-    # --- Conditional: after ingest ---
+    # --- Routing: after ingest ---
     graph_agent.add_conditional_edges(
         "ingest",
         route_after_ingest,
         {"fetch_order": "fetch_order", "search_orders": "search_orders", "no_order_id": "no_order_id"}
     )
 
-    # --- Conditional: after search_orders ---
+    # --- Routing: after search_orders ---
     graph_agent.add_conditional_edges(
         "search_orders",
         route_after_search,
@@ -69,19 +73,24 @@ def build_graph():
     )
 
     # --- Happy path ---
-    # fetch_order → classify → kb_orchestrator → propose_remedy
-    # propose_remedy: calls refund_preview, calls LLM, interrupts for admin, on resume calls refund_commit
+    # ingest → fetch_order → classify → kb_orchestrator → propose_remedy
+    #       → evaluator_agent (risk check + optional interrupt)
+    #       → commit_action → draft_reply → END
     graph_agent.add_edge("fetch_order", "classify")
     graph_agent.add_edge("classify", "kb_orchestrator")
     graph_agent.add_edge("kb_orchestrator", "propose_remedy")
+    graph_agent.add_edge("propose_remedy", "evaluator_agent")
 
-    # --- Conditional: after propose_remedy (post-interrupt resume) ---
+    # --- Routing: after evaluator_agent ---
+    # approved  → commit_action → draft_reply → END
+    # rejected  → END
     graph_agent.add_conditional_edges(
-        "propose_remedy",
-        route_after_approval,
-        {"draft_reply": "draft_reply", "end": END}
+        "evaluator_agent",
+        route_after_evaluation,
+        {"commit_action": "commit_action", "end": END}
     )
 
+    graph_agent.add_edge("commit_action", "draft_reply")
     graph_agent.add_edge("draft_reply", END)
     graph_agent.add_edge("no_order_id", END)
 

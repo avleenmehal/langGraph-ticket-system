@@ -55,6 +55,9 @@ def fetch_order_node(state: TriageState) -> TriageState:
         state["messages"].append({"role": "assistant", "content": f"Error: {result['error']}"})
     else:
         state["evidence"] = result
+        # Propagate customer email from order data so the evaluator can query ticket history
+        if result.get("email") and not state.get("customer_email"):
+            state["customer_email"] = result["email"]
         state["messages"].append({"role": "assistant", "content": f"Fetched order details: {order_id}"})
 
     return state

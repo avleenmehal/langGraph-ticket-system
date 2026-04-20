@@ -13,6 +13,11 @@ class TriageState(TypedDict):
     recommendation: str | None
     policy_citations: list | None       # filenames e.g. ["refund_policy.md"]
     policy_evidence: list | None        # full text chunks for LLM reasoning
-    refund_preview: dict | None         # raw preview (amounts, item) + LLM recommendation
+    refund_preview: dict | None         # enriched preview (amounts, item, LLM recommendation)
     approval_status: str | None         # "approved" | "rejected"
     final_status: str | None            # "refund_committed" | "replacement_authorized"
+    # --- Evaluator agent outputs (written back from evaluator subgraph) ---
+    eval_risk_tier: str | None          # "normal" | "watch" | "flagged"
+    eval_ticket_count: int | None       # total historical tickets for this customer
+    eval_confidence_decision: str | None  # "auto_approve" | "escalate" | "auto_reject"
+    eval_reasoning: str | None          # LLM explanation of the confidence decision

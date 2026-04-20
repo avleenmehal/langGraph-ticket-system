@@ -3,7 +3,6 @@ import json
 import requests
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from langgraph.types import interrupt
 from graph.TriageState import TriageState
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
@@ -17,15 +16,11 @@ def _get_llm():
 
 def propose_remedy_node(state: TriageState) -> TriageState:
     """
-    1. Calls payments.refund_preview (or replacement_preview) to get proposed action.
-    2. Calls LLM to generate a structured recommendation for the admin.
-    3. Interrupts for human approval — preview passed via interrupt payload.
-    4. On resume: calls payments.refund_commit (or replacement_commit).
+    1. Calls payments.refund_preview (or replacement_preview) to get the proposed action.
+    2. Calls LLM to generate a structured admin recommendation.
+    3. Stores enriched preview in state["refund_preview"].
 
-    NOTE: state mutations before interrupt() are NOT checkpointed (LangGraph behaviour).
-    The enriched preview is passed through the interrupt payload so the API can read it
-    from graph_state.tasks[*].interrupts[*].value without relying on committed state.
-    After resume the node returns normally, so all state updates ARE checkpointed.
+    Interrupt and commit logic have moved to evaluator_agent subgraph (evaluator_subgraph.py).
     """
     issue_type = state.get("issue_type")
     order_id = state.get("order_id")
@@ -59,7 +54,8 @@ def propose_remedy_node(state: TriageState) -> TriageState:
 Your job is to analyse a support ticket and generate a structured recommendation
 for an ADMIN to review and approve before any action is taken.
 
-Be specific, cite the exact policy sections, and flag any risks."""
+Be specific and cite the exact policy sections. Do NOT assess fraud risk or customer
+history — a separate evaluator agent handles that with full historical data."""
 
     human_prompt = f"""## Support Ticket
 {ticket}
@@ -81,7 +77,6 @@ Generate a structured admin recommendation with these exact sections:
 
 **RECOMMENDED ACTION**: (one sentence, specific — e.g. "Issue full refund of $120.50")
 **POLICY JUSTIFICATION**: (cite the specific policy file and rule that authorises this)
-**RISK ASSESSMENT**: low / medium / high — and why
 **CUSTOMER REPLY**: (the message to send to the customer if admin approves)
 """
 
@@ -94,51 +89,15 @@ Generate a structured admin recommendation with these exact sections:
     except Exception as e:
         llm_recommendation = f"LLM unavailable: {e}"
 
-    enriched_preview = {
+    state["refund_preview"] = {
         **raw_preview,
         "llm_recommendation": llm_recommendation,
         "policy_citations": citations,
-        "order": order,   # full order details for admin review
+        "order": order,
     }
 
-    # --- Step 3: Interrupt — preview passed in payload so API can read it ---
-    # graph_state.tasks[*].interrupts[*].value holds this dict after invoke() pauses.
-    approved = interrupt({
-        "preview": enriched_preview,
-        "policy_citations": citations,
-        "issue_type": issue_type,
-        "message": "Review the remedy preview. Approve or reject.",
-    })
-
-    # --- Step 4: Resume — commit the approved action ---
-    # Node now returns normally → all state updates below ARE checkpointed.
-    state["refund_preview"] = enriched_preview
-    state["approval_status"] = "approved" if approved else "rejected"
-
-    if not approved:
-        state["final_status"] = "rejected"
-        state["recommendation"] = "Remedy rejected by admin. No action taken."
-        state["messages"].append({"role": "system", "content": "Admin rejected the remedy."})
-        return state
-
-    # Call payments.refund_commit / replacement_commit
-    if issue_type in REFUND_TYPES:
-        amount = enriched_preview.get("refund_amount", 0)
-        commit_resp = requests.post(
-            f"{BACKEND_URL}/refund/commit",
-            json={"order_id": order_id, "amount": amount, "issue_type": issue_type}
-        )
-    else:
-        commit_resp = requests.post(
-            f"{BACKEND_URL}/replacement/commit",
-            json={"order_id": order_id, "issue_type": issue_type}
-        )
-
-    commit_result = commit_resp.json() if commit_resp.ok else {"error": "Commit failed"}
-    state["final_status"] = commit_result.get("status", "unknown")
     state["messages"].append({
-        "role": "system",
-        "content": f"Action committed: {state['final_status']}"
+        "role": "assistant",
+        "content": "Remedy preview generated. Passing to evaluator agent."
     })
-
     return state

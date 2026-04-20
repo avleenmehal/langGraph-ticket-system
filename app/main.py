@@ -4,6 +4,7 @@ import json
 import psycopg
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -17,6 +18,13 @@ load_dotenv("graph/.env")
 DB_URL = os.getenv("DATABASE_URL", "postgresql://localhost/viridien")
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Graph built once at startup
 triage_graph = build_graph()
@@ -96,6 +104,10 @@ async def invoke(body: TriageInput):
         "refund_preview": None,
         "approval_status": None,
         "final_status": None,
+        "eval_risk_tier": None,
+        "eval_ticket_count": None,
+        "eval_confidence_decision": None,
+        "eval_reasoning": None,
     }
 
     insert_session(thread_id, body.ticket_text, body.order_id)
@@ -129,9 +141,29 @@ async def invoke(body: TriageInput):
             "order_id": committed.get("order_id"),
             "preview": preview,
             "policy_citations": committed.get("policy_citations"),
+            "eval_risk_tier": committed.get("eval_risk_tier"),
+            "eval_ticket_count": committed.get("eval_ticket_count"),
+            "eval_confidence_decision": committed.get("eval_confidence_decision"),
+            "eval_reasoning": committed.get("eval_reasoning"),
         }
 
-    # No interrupt (e.g. no_order_id path)
+    # No interrupt — check for auto evaluation decisions or terminal paths (no_order_id)
+    eval_decision = result.get("eval_confidence_decision")
+
+    if eval_decision == "auto_reject":
+        update_session_result(thread_id, "auto_rejected", result)
+        return {
+            "status": "auto_rejected",
+            "thread_id": thread_id,
+            "eval_risk_tier": result.get("eval_risk_tier"),
+            "eval_ticket_count": result.get("eval_ticket_count"),
+            "eval_reasoning": result.get("eval_reasoning"),
+        }
+
+    if eval_decision == "auto_approve":
+        update_session_result(thread_id, "completed", result)
+        return {**result, "status": "completed"}
+
     update_session_result(thread_id, "completed", result)
     return result
 
