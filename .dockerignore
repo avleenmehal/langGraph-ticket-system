@@ -1,0 +1,6 @@
+myenv
+__pycache__
+*.pyc
+graph/.env
+.env
+.git
